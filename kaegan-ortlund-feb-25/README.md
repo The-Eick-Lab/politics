@@ -2,7 +2,7 @@
 
 [DOI](https://doi.org/10.1016/j.socscimed.2025.117800)
 
-PMID: 
+PMID: 39923502
 
 ### Abstract
 
