@@ -1,0 +1,1664 @@
+---
+title: "Code: Tables & Figures"
+output:
+  html_document:
+   theme: united
+   toc: true
+   toc_depth: 4
+   toc_float: true       
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## **Main Text: Tables and Figures**
+
+Load packages.
+
+```{r, message = FALSE, warning = FALSE}
+## Load packages
+library(tidyverse)
+library(gtsummary)
+library(flextable)
+library(cowplot)
+library(broom)
+library(corrplot)
+library(interactions)
+library(effectsize)
+library(car)
+```
+
+
+```{r, include = FALSE, warning = FALSE, message = FALSE}
+##### Import Datasets
+setwd("/Users/keortlund/Library/CloudStorage/OneDrive-EmoryUniversity/PASS/data")
+pass <- read.csv("PoliciesAndSocialStr_DATA_2024-07-17_0946.csv")
+gift1 <- read.csv("PASS Gift Cards_11.09.csv")
+gift2 <- read.csv("PASS Gift Cards_1.12.csv")
+```
+
+
+```{r, include = FALSE, message=FALSE, warning = FALSE}
+########## DATA CLEANING ############
+
+#### Keep only participants who were compensated 
+
+# Match Key 
+gift1 <- rename(gift1, record_id = Record.ID)
+gift2 <- rename(gift2, record_id = Record.ID)
+
+# Keep only participants that were compensated and received a gift card)
+gift <- rbind(gift1, gift2)
+pass <- semi_join(pass, gift, by = "record_id")
+
+#### Re-code missing values 
+
+# Marital Status
+pass$marital_status[pass$marital_status >= 77] <- NA
+
+# Education
+pass$education[pass$education > 6] <- NA
+
+# Military 
+pass$military[pass$military > 1] <- NA
+
+# Household size
+pass$num_household[pass$num_household==0] <- 1
+
+# Household income
+pass$hh_income_cat[pass$hh_income_cat > 11] <- NA
+
+# Insurance
+pass$insurance[pass$insurance > 1] <- NA
+pass$ins_type[pass$ins_type > 3] <- NA
+
+# Race
+pass$race[pass$race > 8] <- NA
+
+# Ethnicity
+pass$ethnicity[pass$ethnicity > 1] <- NA
+
+# Foreign Born
+pass$foreignborn[pass$foreignborn > 2] <- NA
+
+# Employment Status
+pass$employment[pass$employment > 3] <- NA
+
+# Student 
+pass$student[pass$student > 1] <- NA
+
+# Ever smoked
+pass$smoke[pass$smoke > 1] <- NA
+
+# Smoking category
+pass$smoke_cat[pass$smoke_cat > 3] <- NA
+
+# Ever had alcohol
+pass$alcohol[pass$alcohol > 1] <- NA
+
+# Alcohol in the last month
+pass$alc_lastmonth[pass$alc_lastmonth > 1] <- NA
+
+# Last time had alcohol
+pass$alc_month[pass$alc_month > 3] <- NA
+
+# Marijuana 
+pass$marijuana[pass$marijuana > 1] <- NA
+
+# Current marijuana user
+pass$marijuana_current_former[pass$marijuana_current_former > 1] <- NA
+
+# Last time had marijuana
+pass$marijuana_cat[pass$marijuana_cat > 3] <- NA
+
+# Have you been pregnant before?
+pass$pregnant_before[pass$pregnant_before > 1] <- NA
+
+# Currently pregnant 
+pass$curr_pregnant[pass$curr_pregnant > 1] <- NA
+
+# 2024 election as a source of stress
+pass$pol_stress1[pass$pol_stress1 == 99] <- NA
+
+# Future political climate as a source of stress
+pass$pol_stress2[pass$pol_stress2 == 88] <- NA
+
+# Current political climate as a source of stress
+pass$pol_stress3[pass$pol_stress3 == 88] <- NA
+
+#### Intent to vote
+pass$vote_2024[pass$vote_2024 == 9] <- NA
+
+# Political Orientation 
+pass$pol_orientation[pass$pol_orientation > 5] <- NA
+
+# Financial Strain 
+pass$fin_strain[pass$fin_strain > 3] <- NA
+
+## Abortion Views
+# Do you think abortion should be..
+pass$abortion_view1[pass$abortion_view1 > 4] <- NA
+
+# abortion_view2
+pass$abortion_view2[pass$abortion_view2 > 3] <- NA
+
+# abortion_view3
+pass$abortion_view3[pass$abortion_view3 > 3] <- NA
+
+# abortion_view4
+pass$abortion_view4[pass$abortion_view4 > 3] <- NA
+
+# abortion_view5
+pass$abortion_view5[pass$abortion_view5 > 3] <- NA
+
+# abortion_view6
+pass$abortion_view6[pass$abortion_view6 > 3] <- NA
+
+# abortion_view16
+pass$abortion_view7[pass$abortion_view7 > 4] <- NA
+
+# abortion_view8
+pass$abortion_view8[pass$abortion_view8 > 3] <- NA
+
+# abortion_view9
+pass$abortion_view9[pass$abortion_view9 > 5] <- NA
+
+# abortion_view10
+pass$abortion_view10[pass$abortion_view10 > 5] <- NA
+
+# abortion_view11
+pass$abortion_view11[pass$abortion_view11 > 5] <- NA
+
+# abortion_view12
+pass$abortion_view12[pass$abortion_view12 > 5] <- NA
+
+# abortion_view13
+pass$abortion_view13[pass$abortion_view13 > 5] <- NA
+
+# abortion_view14
+pass$abortion_view14[pass$abortion_view14 > 5] <- NA
+
+# abortion_view15
+pass$abortion_view15[pass$abortion_view15 > 5] <- NA
+
+# abortion_view16
+pass$abortion_view16[pass$abortion_view16 > 5] <- NA
+
+# abortion_view17
+pass$abortion_view17[pass$abortion_view17 > 3] <- NA
+
+# abortion_view18
+pass$abortion_view18[pass$abortion_view18 > 5] <- NA
+
+# abortion_view19
+pass$abortion_view19[pass$abortion_view19 > 3] <- NA
+
+# abortion_view20
+pass$abortion_view20[pass$abortion_view20 > 2] <- NA
+
+
+#### Check demographic class and change to factor if necessary
+
+factor <- c("student", "alcohol", "smoke", "pregnant_before", "race",
+                        "employment", "ethnicity", "pol_stress1", "pol_orientation",
+                        "marital_status", "hh_income_cat", "education", "ins_type",
+                        "pol_stress2", "pol_stress3")
+
+# Apply the conversion using a loop for efficiency
+for (factor in factor) {
+  pass[[factor]] <- as.factor(pass[[factor]])
+}
+
+#### Collapse factor variables  
+
+# Political Orientation
+pass$pol_orientation_new <- fct_collapse(pass$pol_orientation, "1" = c("1", "2"), "2" = "3", "3" = c("4", "5"))
+
+# Marital Status
+pass$marital_status <- fct_collapse(pass$marital_status, "1" = c("1", "6"), "2" = c("2", "3", "4", "5"))
+
+# Education 
+pass$education <- fct_collapse(pass$education, "1" = c("1", "2" ,"3"), "2"= c("4","5","6"))
+
+# Household Income
+pass$hh_income_cat <- fct_collapse(pass$hh_income_cat, "1" = c("1", "2", "3", "4", "5"), "2" = c("6", "7", "8", "9"), "3" = c("10", "11"))
+
+# Insurance
+pass$ins_type <- fct_collapse(pass$ins_type, "1" = c("0", "2"), "2" = "1", "3" = c("3"))
+
+# Race
+pass$race <- fct_collapse(pass$race, "1" = "8", "2" = c("1", "2","3","5", "7"))
+
+# 2024 election as a source of stress
+pass$pol_stress1 <- fct_collapse(pass$pol_stress1, "1" = c("1", "2"), "2" = c("3", "4"))
+
+# Future political climate as a source of stress
+pass$pol_stress2 <- fct_collapse(pass$pol_stress2, "1" = c("1", "2"), "2" = c("3", "4"))
+
+# Future political climate as a source of stress
+pass$pol_stress3 <- fct_collapse(pass$pol_stress3, "1" = c("1", "2"), "2" = c("3", "4"))
+
+# Abortion view (Question 1; Do you think abortion should be legal/illegal in...)
+pass$abortion_view1 <- fct_collapse(as.factor(pass$abortion_view1), "1" = c("1", "2"), "2" = c("3", "4"))
+
+### Re-code variables 
+
+# Re-code smoke to: never smoked, ever smoked, current smoker
+pass$smoke_catt <- case_when(
+  pass$smoke == "0" ~ "0",
+  pass$smoke == "1" & pass$smoke_former_current == "1" ~ "2",
+  pass$smoke == "1" ~ "1",
+)
+
+# Re-code alcohol to: never drank, ever drank, during last month                          
+pass$alcohol_cat <- case_when(
+  pass$alcohol == "0" ~ "0",
+  pass$alcohol == "1" & pass$alc_month == "1" ~ "2",
+  pass$alcohol == "1" ~ "1"
+)
+
+# Re-name 
+pass <- pass %>% 
+mutate(pol_orientation_new = recode(pol_orientation_new,
+                       "1" = "Liberal",
+                       "2" = "Moderate",
+                       "3" = "Conservative"), 
+         race = recode(race,
+                       "1" = "White",
+                       "2" = "non-White"),
+         marital_status = recode(marital_status,
+                                 "1" = "Married or cohabitating",
+                                 "2" = "Single"),
+         alcohol_cat = recode(alcohol_cat,
+                          "0" = "Never had alcohol",
+                          "1" = "Ever had alcohol",
+                          "2" = "During the last month"),
+         education = recode(education,
+                            "1" = "< College degree",
+                            "2" = "≥ College degree"),
+         ins_type = recode(ins_type,
+                            "1" = "Medicaid",
+                            "2" = "Private through employer",
+                            "3" = "Other"),
+         ethnicity = recode(ethnicity,
+                            "1" = "Hispanic or Latino",
+                            "0" = "Not Hispanic or Latino"),
+         student = recode(student,
+                           "1" = "Yes",
+                           "0" = "No"),
+         pregnant_before = recode(pregnant_before,
+                         "1" = "Yes",
+                         "0" = "No"),
+         smoke_catt = recode(smoke_catt,
+                        "0" = "Never smoked",
+                        "1" = "Ever smoked",
+                        "2" = "Current smoker"),
+         employment = recode(employment,
+                             "0" = "Unemployed",
+                             "1" = "Employed Part Time",
+                             "3" = "Employed Full Time"),
+         hh_income_cat = recode(hh_income_cat,
+                                "1" = "< 55,000",
+                                "2" = "55,000 to 100,000",
+                                "3" = "> 100,000"),
+         abortion_view1 = recode(abortion_view1,
+                                 "1" = "Legal in most/all cases",
+                                 "2"= "Illegal in most/all cases"),
+         pol_stress1 = recode(pol_stress1, 
+                              "1" = "Not significant",
+                "2" = "Significant"))
+
+pass$pol_orientation_new
+```
+
+```{r, include = FALSE, message = FALSE, warning=FALSE, results = FALSE}
+########## SCALE AND RECODE VARIABLES
+#### Scale depression values to the Center For Epidemiological Studies Depression Scale
+
+# Define total
+pass$cesd_total <- pass$cesd_1 + pass$cesd_2 + pass$cesd_3 + pass$cesd_4 +
+  pass$cesd_5 + pass$cesd_6 + pass$cesd_7  + pass$cesd_8 + pass$cesd_9 +
+  pass$cesd_10 + pass$cesd_11 + pass$cesd_12 + pass$cesd_13 + pass$cesd_14 +
+  pass$cesd_15 + pass$cesd_16 + pass$cesd_17 + pass$cesd_18 + pass$cesd_19 +
+  pass$cesd_20
+
+# Set values above 60 to NA
+pass$cesd_total[pass$cesd_total > 60] <- NA
+
+# 16 or greater indicates at risk for clinical depression
+pass$cesd_risk <- ifelse(pass$cesd_total<16,0, 
+                         ifelse(pass$cesd_total>=16, 1, NA))
+
+#### Scale climate responses to Climate Change Anxiety Scale
+
+# Define total
+pass$climate_anxiety_total <- pass$climate_anxiety1 + pass$climate_anxiety2 +
+  pass$climate_anxiety3 + pass$climate_anxiety4 + pass$climate_anxiety5 + 
+  pass$climate_anxiety6 + pass$climate_anxiety7 + pass$climate_anxiety8 + 
+  pass$climate_anxiety9 + pass$climate_anxiety10 + pass$climate_anxiety11 + 
+  pass$climate_anxiety12 + pass$climate_anxiety13
+
+# Set values above 65 to NA
+pass$climate_anxiety_total[pass$climate_anxiety_total > 65] <- NA
+
+# 39 or greater indicates at risk for climate anxiety
+pass$climate_anxiety_risk <- ifelse(pass$climate_anxiety_total<39,0, 
+                         ifelse(pass$climate_anxiety_total>=39, 1, NA))
+
+
+#### Scale Political Engagement to Scale Political Engagement Scale
+pass$cost_politics_total <- pass$cost_politics1 + pass$cost_politics2 +
+  pass$cost_politics3 + pass$cost_politics4 + pass$cost_politics5 +
+  pass$cost_politics6 + pass$cost_politics7 + pass$cost_politics8 +
+  pass$cost_politics9 + pass$cost_politics10 + pass$cost_politics11 +
+  pass$cost_politics12 + pass$cost_politics13 + pass$cost_politics14 +
+  pass$cost_politics15 + pass$cost_politics16 + pass$cost_politics17 +
+  pass$cost_politics18 + pass$cost_politics19 + pass$cost_politics20 +
+  pass$cost_politics21 + pass$cost_politics22 + pass$cost_politics23 +
+  pass$cost_politics24 + pass$cost_politics25 + pass$cost_politics26 +
+  pass$cost_politics27 + pass$cost_politics28 + pass$cost_politics29 +
+  pass$cost_politics30 + pass$cost_politics31 + pass$cost_politics32
+
+# Set values above 160 to NA
+pass$cost_politics_total[pass$cost_politics_total > 160] <- NA
+
+
+#### Scale stress to Stressful Life Events Scale
+
+# Define total 
+pass$sle_total <- pass$sle_1 + pass$sle_2 + pass$sle_3 + pass$sle_4 + 
+  pass$sle_5 + pass$sle_6 + pass$sle_13 + pass$sle_8 + pass$sle_9 + pass$sle_10 
+  + pass$sle_11 + pass$sle_12
+
+
+# Set values above 12 to NA
+pass$sle_total[pass$sle_total > 12] <- NA
+
+#### Scale social status to Social Status Ladder 
+
+# Define
+pass$ladder[pass$ladder > 10] <- NA
+
+pass$ladder_rc <- ifelse(pass$ladder>10, NA,
+                   ifelse(pass$ladder==10,1, 
+                    ifelse(pass$ladder==9, 2,
+                      ifelse(pass$ladder==8, 3,
+                       ifelse(pass$ladder==7, 4,
+                         ifelse(pass$ladder==6, 5,
+                          ifelse(pass$ladder==5, 6, 
+                            ifelse(pass$ladder==4, 7,
+                             ifelse(pass$ladder==3, 8,   
+                              ifelse(pass$ladder==2, 9,      
+                                ifelse(pass$ladder==10, 1,     
+                                                     NA)))))))))))
+
+#### Scale food insecurity to Food Insecurity Scale
+
+# Define total 
+pass$food_sec_total <- pass$food_sec_1 +pass$food_sec_2 + pass$food_sec_3 +
+  pass$food_sec_4
+
+# Set values above 6 to NA
+pass$food_sec_total[pass$food_sec_total > 8] <- NA
+
+#### Scale perceived stress to Perceived Stress Scale
+
+# Need to reverse code questions 4, 5, 7, 8)
+pass$pss10_4rc <- ifelse(pass$pss10_4==0,4, 
+                         ifelse(pass$pss10_4==1, 3,
+                            ifelse(pass$pss10_4==2, 2,
+                              ifelse(pass$pss10_4==3, 1,
+                                ifelse(pass$pss10_4==4, 0,
+                                NA)))))
+
+pass$pss10_5rc <- ifelse(pass$pss10_5==0,4, 
+                         ifelse(pass$pss10_5==1, 3,
+                                ifelse(pass$pss10_5==2, 2,
+                                       ifelse(pass$pss10_5==3, 1,
+                                              ifelse(pass$pss10_5==4, 0,
+                                                     NA)))))
+
+pass$pss10_7rc <- ifelse(pass$pss10_7==0,4, 
+                         ifelse(pass$pss10_7==1, 3,
+                                ifelse(pass$pss10_7==2, 2,
+                                       ifelse(pass$pss10_7==3, 1,
+                                              ifelse(pass$pss10_7==4, 0,
+                                                     NA)))))
+
+pass$pss10_8rc <- ifelse(pass$pss10_8==0,4, 
+                         ifelse(pass$pss10_8==1, 3,
+                                ifelse(pass$pss10_8==2, 2,
+                                       ifelse(pass$pss10_8==3, 1,
+                                              ifelse(pass$pss10_8==4, 0,
+                                                     NA)))))
+
+
+# Define total 
+pass$pss10_total <- pass$pss10_1 + pass$pss10_2 + pass$pss10_3 + pass$pss10_4rc + 
+  pass$pss10_5rc + pass$pss10_6 + pass$pss10_7rc + pass$pss10_8rc + pass$pss10_9 +
+  pass$pss10_10
+
+# Set values above 40 to NA
+pass$pss10_total[pass$pss10_total > 40] <- NA
+
+#### Scale financial strain to Financial Strain Scale
+
+# Define 
+pass$fin_strain_rc <- ifelse(pass$fin_strain<2,0, 
+                              ifelse(pass$fin_strain>=2, 1,
+                                           NA))
+
+#### ACES
+pass$aces_total <- pass$swear + pass$push + pass$touch + pass$loved +
+  pass$eat + pass$divorced + pass$mother + pass$drugs + pass$depressed +
+  pass$prison 
+
+# Set values above 10 to NA
+pass$aces_total[pass$aces_total > 10] <- NA
+
+#### Scale discrimination to Experiences of Discrimination
+
+# Define total 
+pass$eod_total <- pass$eod3 + pass$eod4 + pass$eod5 + pass$eod6 + pass$eod7 +
+  pass$eod8 + pass$eod9 + pass$eod10 + pass$eod11
+
+# Set values above 27 to NA
+pass$eod_total[pass$eod_total > 27] <- NA
+
+
+#### Scale social support to Multidimensional Scale Of Perceived Social Support
+pass$mpss_total <- pass$mpss1 + pass$mpss2 + pass$mpss3 + pass$mpss4 + 
+  pass$mpss5 + pass$mpss6 + pass$mpss7 + pass$mpss8 + pass$mpss9 +
+  pass$mpss10 + pass$mpss11 + pass$mpss12
+
+# Set values above 84 to NA
+pass$mpss_total[pass$mpss_total > 84] <- NA
+
+#### Re-code Neighborhood 
+
+pass$neighborhood2_rc <- ifelse(pass$neighborhood2==1,5, 
+                           ifelse(pass$neighborhood2==2, 4,
+                             ifelse(pass$neighborhood2==3, 3,
+                               ifelse(pass$neighborhood2==4, 2,
+                                 ifelse(pass$neighborhood2==5, 1,
+                                                     NA)))))
+
+pass$neighborhood4_rc <- ifelse(pass$neighborhood4==1,5, 
+                                ifelse(pass$neighborhood4==2, 4,
+                                       ifelse(pass$neighborhood4==3, 3,
+                                              ifelse(pass$neighborhood4==4, 2,
+                                                     ifelse(pass$neighborhood4==5, 1,
+                                                            NA)))))
+
+pass$neighborhood5_rc <- ifelse(pass$neighborhood5==1,5, 
+                                ifelse(pass$neighborhood5==2, 4,
+                                       ifelse(pass$neighborhood5==3, 3,
+                                              ifelse(pass$neighborhood5==4, 2,
+                                                     ifelse(pass$neighborhood5==5, 1,
+                                                            NA)))))
+
+pass$neighborhood12_rc <- ifelse(pass$neighborhood12==1,5, 
+                                ifelse(pass$neighborhood12==2, 4,
+                                       ifelse(pass$neighborhood12==3, 3,
+                                              ifelse(pass$neighborhood12==4, 2,
+                                                     ifelse(pass$neighborhood12==5, 1,
+                                                            NA)))))
+
+pass$neighborhood13_rc <- ifelse(pass$neighborhood13==1,5, 
+                                 ifelse(pass$neighborhood13==2, 4,
+                                        ifelse(pass$neighborhood13==3, 3,
+                                               ifelse(pass$neighborhood13==4, 2,
+                                                      ifelse(pass$neighborhood13==5, 1,
+                                                             NA)))))
+
+pass$neighborhood14_rc <- ifelse(pass$neighborhood14==1,5, 
+                                 ifelse(pass$neighborhood14==2, 4,
+                                        ifelse(pass$neighborhood14==3, 3,
+                                               ifelse(pass$neighborhood14==4, 2,
+                                                      ifelse(pass$neighborhood14==5, 1,
+                                                             NA)))))
+
+pass$neighborhood15_rc <- ifelse(pass$neighborhood15==1,5, 
+                                 ifelse(pass$neighborhood15==2, 4,
+                                        ifelse(pass$neighborhood15==3, 3,
+                                               ifelse(pass$neighborhood15==4, 2,
+                                                      ifelse(pass$neighborhood15==5, 1,
+                                                             NA)))))
+
+# Define total 
+pass$neigh_eff <- pass$neighborhood2_rc + pass$neighborhood4_rc + 
+  pass$neighborhood5_rc + pass$neighborhood8 + pass$neighborhood9 +
+  pass$neighborhood12_rc + pass$neighborhood13_rc + pass$neighborhood14_rc +
+  pass$neighborhood15_rc
+
+# Set values above 45 to NA
+pass$neigh_eff[pass$neigh_eff > 45] <- NA
+
+#Neighborhood safety 
+pass$neighborhood3[pass$neighborhood3 > 5] <- NA
+
+# R-cecode for higher=worse
+pass$neigh_safety <- ifelse(pass$neighborhood3==1,5, 
+                                 ifelse(pass$neighborhood3==2, 4,
+                                        ifelse(pass$neighborhood3==3, 3,
+                                               ifelse(pass$neighborhood3==4, 2,
+                                                      ifelse(pass$neighborhood3==5, 1,
+                                                             NA)))))
+# Neighborhood satisfaction
+
+pass$neighborhood1_rc <- ifelse(pass$neighborhood1==1,5, 
+                                 ifelse(pass$neighborhood1==2, 4,
+                                        ifelse(pass$neighborhood1==3, 3,
+                                               ifelse(pass$neighborhood1==4, 2,
+                                                      ifelse(pass$neighborhood1==5, 1,
+                                                             NA)))))
+
+pass$neigh_sat <- pass$neighborhood1_rc + pass$neighborhood7
+
+# Physical disorder
+
+pass$neigh_disorder <- pass$neighborhood6 + pass$neighborhood10 + 
+  pass$neighborhood11
+
+# setting values above 15 to NA
+pass$neigh_disorder[pass$neigh_disorder > 15] <- NA
+
+# TOTAL NEIGHBORHOOD - adding the sub-scales together
+
+pass$neigh_total <- pass$neigh_eff + pass$neigh_safety + pass$neigh_sat + 
+  pass$neigh_disorder
+
+#### GAD 7 Scale
+pass$gad1_rc <- ifelse(pass$gad1==1,0, 
+                         ifelse(pass$gad1==2, 1,
+                                ifelse(pass$gad1==3, 2,
+                                       ifelse(pass$gad1==4, 3,
+                                                     NA))))
+
+pass$gad2_rc <- ifelse(pass$gad2==1,0, 
+                       ifelse(pass$gad2==2, 1,
+                              ifelse(pass$gad2==3, 2,
+                                     ifelse(pass$gad2==4, 3,
+                                            NA))))
+
+pass$gad3_rc <- ifelse(pass$gad3==1,0, 
+                       ifelse(pass$gad3==2, 1,
+                              ifelse(pass$gad3==3, 2,
+                                     ifelse(pass$gad3==4, 3,
+                                            NA))))
+
+pass$gad4_rc <- ifelse(pass$gad4==1,0, 
+                       ifelse(pass$gad4==2, 1,
+                              ifelse(pass$gad4==3, 2,
+                                     ifelse(pass$gad4==4, 3,
+                                            NA))))
+
+pass$gad5_rc <- ifelse(pass$gad5==1,0, 
+                       ifelse(pass$gad5==2, 1,
+                              ifelse(pass$gad5==3, 2,
+                                     ifelse(pass$gad5==4, 3,
+                                            NA))))
+
+pass$gad6_rc <- ifelse(pass$gad6==1,0, 
+                       ifelse(pass$gad6==2, 1,
+                              ifelse(pass$gad6==3, 2,
+                                     ifelse(pass$gad6==4, 3,
+                                            NA))))
+
+pass$gad7_rc <- ifelse(pass$gad7==1,0, 
+                       ifelse(pass$gad7==2, 1,
+                              ifelse(pass$gad7==3, 2,
+                                     ifelse(pass$gad7==4, 3,
+                                            NA))))
+
+pass$gad_total <- pass$gad1_rc + pass$gad2_rc + pass$gad3_rc + pass$gad4_rc +
+  pass$gad5_rc + pass$gad6_rc + pass$gad7_rc
+
+pass$gad_total[pass$gad_total >21] <- NA
+
+# Moderate to Severe Anxiety (10 or above)
+
+pass$gad_risk <- ifelse(pass$gad_total>10,1, 
+                       ifelse(pass$gad_total<10, 0,
+                                            NA))
+
+#### Mass Shooting
+
+# Define total 
+pass$msa_total <- pass$msa1 + pass$msa2 + pass$msa3 + pass$msa4 + pass$msa5
+
+# Set values above 20 to NA
+pass$msa_total[pass$msa_total > 20] <- NA
+
+# Rename 
+pass <- pass %>% rename(
+    Age = age,
+    Race = race,
+    Education = education,
+    Ethnicity = ethnicity,
+    Employment = employment,
+    "Marital Status" = marital_status,
+    "Household Income" = hh_income_cat,
+    Student = student,
+    Smoke = smoke_catt,
+    Alcohol = alcohol_cat,
+    "Insurance Type" = ins_type,
+    "Abortion View" = abortion_view1,
+    "2024 Election as a Source of Stress" = pol_stress1,
+    "Pregnant Before" = pregnant_before,
+    "Political Orientation" = pol_orientation_new,
+    "Political Stress" = cost_politics_total,
+    "Depressive Symptoms" = cesd_total,
+    "Generalized Anxiety Symptoms" = gad_total,
+    "Perceived Stress" = pss10_total)
+```
+
+### *Table 1* {.tabset}
+Distribution of sociodemographic characteristics, and political stress, depressive symptoms, generalized anxiety symptoms, and perceived stress outcomes within the Policies and Social Stress (PASS) Study (N=148)
+
+#### Mean (SD)
+```{r}
+# Select variables
+table1_1 <- pass %>%
+    dplyr::select(Age, Race, Ethnicity, Education, `Marital Status`, `Household Income`, `Insurance Type`, Employment, Student, Smoke, Alcohol,`Pregnant Before`, `Political Orientation`, `Abortion View`, `2024 Election as a Source of Stress`, `Political Stress`, `Depressive Symptoms`, `Generalized Anxiety Symptoms`, `Perceived Stress`)
+
+# Table
+table1_1 <- table1_1 %>%
+  tbl_summary(type = all_dichotomous() ~ "categorical",
+              statistic = list(
+      `Age` ~ "{mean} ({sd})",
+      `Political Stress` ~ "{mean} ({sd})",
+      `Depressive Symptoms` ~ "{mean} ({sd})",
+      `Generalized Anxiety Symptoms` ~ "{mean} ({sd})",
+      `Perceived Stress` ~ "{mean} ({sd})"),
+  digits = all_continuous() ~ 2, missing_text = "Missing") %>%
+  modify_header(label = "**Demographic**")  %>%
+  bold_labels() %>%
+  modify_caption("Table 1: Distribution of sociodemographic characteristics, and political stress, depression, generalized anxiety, and perceived stress outcomes within the Policies and Social Stress (PASS) Study (N=148)
+")
+
+table1_1
+```
+
+#### Med (Min, Max)
+```{r}
+table1_2 <- pass %>%
+    dplyr::select(`Political Stress`, `Depressive Symptoms`, `Generalized Anxiety Symptoms`, `Perceived Stress`)
+
+table1_2 <- table1_2 %>%
+  tbl_summary(statistic = list(
+      all_continuous() ~ "{median} ({min}, {max})"),
+  digits = all_continuous() ~ 2, missing_text = "Missing") %>%
+  modify_header(label = "**Mental Health Outcome**")  %>%
+  bold_labels() %>%
+  modify_caption("Table 1: Distribution of sociodemographic characteristics, and political stress, depression, generalized anxiety, and perceived stress outcomes within the Policies and Social Stress (PASS) Study (N=148)
+")
+
+
+table1_2
+```
+
+
+### *Table 2* {.tabset}
+Distribution of political stress, generalized anxiety symptoms, depressive symptoms, and perceived stress, across sociodemographic characteristics within the Policies and Social Stress (PASS) Study
+
+#### Distributions
+```{r warning = FALSE, message = FALSE}
+##### Table 2:
+
+demo_names <- c("Race", "Ethnicity", "Education", "Marital Status", "Household Income", "Insurance Type", "Employment", "Student", "Smoke", "Alcohol","Pregnant Before", "Political Orientation", "Abortion View", "2024 Election as a Source of Stress")
+scale_names <- c("Depressive Symptoms", "Political Stress", "Generalized Anxiety Symptoms", "Perceived Stress")
+
+pass_table <- pass %>%
+  dplyr::select(all_of(demo_names), all_of(scale_names)) 
+
+# Pivot the data into a longer format
+pass_final <- pass_table %>%
+  pivot_longer(cols = all_of(demo_names), names_to = "demo_var", values_to = "demo_group") 
+
+# Group by and get summary statistics
+table_2 <- pass_final %>%
+  group_by(demo_var, demo_group) %>%
+  drop_na(demo_group) %>%
+  summarise(
+    cesd_mean = round(mean(`Depressive Symptoms`, na.rm = TRUE), 2),
+    cesd_sd = round(sd(`Depressive Symptoms`, na.rm = TRUE), 2),
+    pol_mean = round(mean(`Political Stress`, na.rm = TRUE), 2),
+    pol_sd = round(sd(`Political Stress`, na.rm = TRUE), 2),
+    gad_mean = round(mean(`Generalized Anxiety Symptoms`, na.rm = TRUE), 2),
+    gad_sd = round(sd(`Generalized Anxiety Symptoms`, na.rm = TRUE), 2),
+    pss_mean = round(mean(`Perceived Stress`, na.rm = TRUE), 2),
+    pss_sd = round(sd(`Perceived Stress`, na.rm = TRUE), 2)) %>%
+  mutate(
+    "Depressive Symptoms" = paste0(cesd_mean, " (", cesd_sd, ")"),
+    "Generalized Anxiety Symptoms" = paste0(gad_mean, " (", gad_sd, ")"),
+   "Political Stress" = paste0(pol_mean, " (", pol_sd, ")"),
+    "Perceived Stress" = paste0(pss_mean, " (", pss_sd, ")")
+  )
+
+
+# Format
+table_2 <- as_data_frame(table_2) %>% 
+  dplyr::select(demo_group, `Political Stress`, `Generalized Anxiety Symptoms`, `Depressive Symptoms`, `Perceived Stress`) %>%
+  rename(Group = demo_group) %>%
+  mutate("Demographic" = c("2024 Election as a source of stress", "", "Abortion View", "", "Alcohol", "", "", "Education", "",  "Employment", "", "", "Ethnicity", "", "Annual Household Income", "", "", "Insurance Type", "", "", "Marital Status", "", "Political Orientation", "", "", "Pregnant Before", "", "Race", "", "Smoke", "", "", "Student", "")) %>%
+  dplyr::select(Demographic, Group, `Political Stress`, `Generalized Anxiety Symptoms`, `Depressive Symptoms`, `Perceived Stress`) %>%
+  regulartable() %>%
+  theme_vanilla() %>%
+  autofit() %>%
+  set_caption(caption = "Table 2: Distribution of generalized anxiety symptoms, depressive symptoms, and perceived stress across sociodemographics")
+
+table_2
+```
+
+#### MANOVA 
+add effect sizes 
+```{r}
+# Race
+dependent_vars <- cbind(pass$`Political Stress`, pass$`Generalized Anxiety Symptoms`, pass$`Depressive Symptoms`, pass$`Perceived Stress`)
+independent_var <- pass$Race
+
+manova_race <- manova(dependent_vars ~ independent_var, data = pass)
+eta_squared(manova_race)
+
+manova_race <- manova_race %>% 
+              tidy() %>%
+              dplyr::select(p.value)
+
+# Ethnicity 
+
+independent_var <- pass$Ethnicity
+
+manova_eth <- manova(dependent_vars ~ independent_var, data = pass)
+eta_squared(manova_eth)
+
+
+manova_eth <- manova_eth %>% 
+              tidy() %>%
+              dplyr::select(p.value)
+
+# Education
+independent_var <- pass$Education
+
+manova_educ <- manova(dependent_vars ~ independent_var, data = pass)
+eta_squared(manova_educ)
+
+manova_educ <-manova_educ %>% 
+              tidy() %>%
+              dplyr::select(p.value)
+
+
+# Marital status
+independent_var <- pass$`Marital Status`
+
+manova_mar <- manova(dependent_vars ~ independent_var, data = pass)
+eta_squared(manova_mar)
+
+manova_mar <- manova_mar %>% 
+              tidy() %>%
+              dplyr::select(p.value)
+
+# Household income
+independent_var <- pass$`Household Income`
+
+manova_hh <- manova(dependent_vars ~ independent_var, data = pass)
+eta_squared(manova_hh)
+
+manova_hh <-  manova_hh %>% 
+              tidy() %>%
+              dplyr::select(p.value)
+
+# Insurance type
+independent_var <- pass$`Insurance Type`
+
+manova_ins <- manova(dependent_vars ~ independent_var, data = pass)
+eta_squared(manova_ins)
+
+manova_ins <- manova_ins %>% 
+              tidy() %>%
+              dplyr::select(p.value)
+
+# Employment
+independent_var <- pass$Employment
+
+manova_emp <- manova(dependent_vars ~ independent_var, data = pass)
+eta_squared(manova_emp)
+
+manova_emp <- manova_emp %>% 
+              tidy() %>%
+              dplyr::select(p.value)
+
+# Student 
+independent_var <- pass$Student
+
+manova_stud <- manova(dependent_vars ~ independent_var, data = pass)
+eta_squared(manova_stud)
+
+manova_stud <- manova_stud %>% 
+              tidy() %>%
+              dplyr::select(p.value)
+
+# Smoke
+independent_var <- pass$Smoke
+
+manova_smoke <- manova(dependent_vars ~ independent_var, data = pass)
+eta_squared(manova_smoke)
+
+manova_smoke <- manova_smoke %>% 
+              tidy() %>%
+              dplyr::select(p.value)
+
+# Alcohol
+independent_var <- pass$Alcohol
+
+manova_alc <- manova(dependent_vars ~ independent_var, data = pass)
+eta_squared(manova_alc)
+
+manova_alc <- manova_alc %>% 
+              tidy() %>%
+              dplyr::select(p.value)
+
+# Parity
+independent_var <- pass$parity
+
+manova_par <- manova(dependent_vars ~ independent_var, data = pass)
+eta_squared(manova_par)
+
+manova_par <-  manova_par %>% 
+              tidy() %>%
+              dplyr::select(p.value)
+
+# 2024 election
+independent_var <- pass$`2024 Election as a Source of Stress`
+
+manova_24 <- manova(dependent_vars ~ independent_var, data = pass)
+eta_squared(manova_24)
+
+manova_24 <-  manova_24 %>% 
+              tidy() %>%
+              dplyr::select(p.value)
+
+# Political orientation
+independent_var <- pass$`Political Orientation`
+
+manova_pol <- manova(dependent_vars ~ independent_var, data = pass)
+eta_squared(manova_pol)
+
+manova_pol <- manova_pol %>% 
+              tidy() %>%
+              dplyr::select(p.value)
+
+# Abortion view
+independent_var <- pass$`Abortion View`
+
+manova_abor <- manova(dependent_vars ~ independent_var, data = pass)
+eta_squared(manova_abor)
+
+manova_abor <- manova_abor %>% 
+              tidy() %>%
+              dplyr::select(p.value)
+
+# MANOVA
+
+# Combine
+MANOVA <- as.data.frame(rbind(manova_race, manova_eth, manova_educ, manova_mar, manova_hh, manova_ins, manova_emp, manova_stud, manova_smoke, manova_alc,manova_par, manova_pol, manova_abor, manova_24))
+
+# Format
+table_2_manova <- MANOVA %>%
+  mutate_if(is.numeric, round, digits = 2) %>%
+  drop_na() %>%
+  mutate("Demographic" = c("Race", "Ethnicity", "Education", "Marital Status", "Annual Household Income", "Insurance Type", "Employment", "Student", "Smoke", "Alcohol", "Pregnant Before", "Political Orientation", "Abortion View", "2024 Election as a source of stress")) %>%
+  dplyr::select(Demographic, p.value) %>%
+  regulartable() %>%
+  theme_vanilla() %>%
+  autofit() %>%
+  set_caption(caption = "Table 2: MANOVA betwen sociodemographics and political stress, generaizedl anxiety symptoms, depressive symptoms, and perceived stress")
+table_2_manova
+
+```
+
+
+### *Figure 1*
+Adjusted linear regression estimates and 95% confidence intervals for the associations between political stress and generalized anxiety symptoms, depressive symptoms, and perceived stress, overall (A) and stratified by political orientation (B), race (C), education (D), abortion view (E), and perceptions of the 2024 election as a source of stress (F) within the Policies and Social Stress (PASS) Study
+
+Note: Models in panel A, D, E, and F are adjusted for age, race, marital status, education, and household income. Models in panel B are adjusted for age, marital status, education, and household income. Models in panel C are adjusted for age, race, marital status, and household income.
+Regression.
+```{r fig.width = 20, fig.height = 20, warning = FALSE,message = FALSE}
+
+# Anxiety
+
+# Run regression
+model_anx_a <- lm(`Generalized Anxiety Symptoms` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Marital Status`, data = pass)
+
+# Pull numbers, format dataset
+model_anx_a <- tidy(model_anx_a, conf.int = TRUE) %>%
+  filter(term == "`Political Stress`") %>%
+  mutate("outcome" = "Generalized Anxiety Symptoms", "N" = nobs(model_anx_a)) %>%
+  dplyr::select(outcome, N, estimate, conf.low, conf.high)
+
+# Depression
+model_dep_a <- lm(`Depressive Symptoms` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Marital Status`, data = pass)
+
+model_dep_a <- tidy(model_dep_a, conf.int = TRUE) %>%
+  filter(term == "`Political Stress`") %>%
+  mutate("outcome" = "Depressive Symptoms", "N" = nobs(model_dep_a)) %>%
+  dplyr::select(outcome, N, estimate, conf.low, conf.high)
+
+# Perceived Stress
+model_pss_a <- lm(`Perceived Stress` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Marital Status`, data = pass)
+
+model_pss_a <- tidy(model_pss_a, conf.int = TRUE) %>%
+  filter(term == "`Political Stress`") %>%
+  mutate("outcome" = "Perceived Stress", "N" = nobs(model_pss_a)) %>%
+  dplyr::select(outcome, N, estimate, conf.low, conf.high)
+
+# Combine models into dataset
+model_all <- rbind(model_anx_a, model_dep_a, model_pss_a)
+
+##### Political Orientation
+
+# Create subgroups
+pass_liberal <- pass %>% filter(`Political Orientation` == "Liberal")
+pass_moderate <- pass %>% filter(`Political Orientation` == "Moderate")
+pass_conservative <- pass %>% filter(`Political Orientation` == "Conservative")
+
+# Anxiety
+
+# Build regression function
+model_pol_a <- function(data) {
+  model <- lm(`Generalized Anxiety Symptoms` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Marital Status`, data = data)
+  tidy(model, conf.int = TRUE) %>%
+  mutate(N = nobs(model)) %>%
+  filter(term == "`Political Stress`")
+  
+}
+
+# Loop over subgroups 
+model_results <- lapply(list(pass_liberal, pass_moderate, pass_conservative), model_pol_a)
+# Combine results, format columns
+models_pol_a <- do.call(rbind, model_results) %>% 
+  mutate("outcome" = "Generalized Anxiety Symptoms", group = c("Liberal", "Moderate", "Conservative")) %>%
+  dplyr::select(group, N, outcome, estimate, conf.low, conf.high)
+
+# Depression 
+model_pol_d <- function(data) {
+  model <- lm(`Depressive Symptoms` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Marital Status`, data = data)
+  tidy(model, conf.int = TRUE) %>%
+  mutate(N = nobs(model)) %>%
+  filter(term == "`Political Stress`") 
+}
+ 
+model_results <- lapply(list(pass_liberal, pass_moderate, pass_conservative), model_pol_d)
+models_pol_d <- do.call(rbind, model_results) %>% 
+  mutate("outcome" = "Depressive Symptoms", group = c("Liberal", "Moderate", "Conservative")) %>%
+  dplyr::select(group, N, outcome, estimate, conf.low, conf.high)
+
+
+# Perceived Stress
+
+model_pol_pss <- function(data) {
+  model <- lm(`Perceived Stress` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Marital Status`, data = data)
+  tidy(model, conf.int = TRUE) %>%
+    mutate(N = nobs(model)) %>%
+  filter(term == "`Political Stress`") 
+}
+ 
+model_results <- lapply(list(pass_liberal, pass_moderate, pass_conservative), model_pol_pss)
+models_pol_pss <- do.call(rbind, model_results) %>% 
+  mutate("outcome" = "Perceived Stress", group = c("Liberal", "Moderate", "Conservative")) %>%
+  dplyr::select(group, N, outcome, estimate, conf.low, conf.high)
+
+# Combine models into dataset
+models_pol <- rbind(models_pol_a, models_pol_d, models_pol_pss)
+
+
+#### Education
+pass_educ_1 <- pass %>% filter(pass$Education == "< College degree")
+pass_educ_2 <- pass %>% filter(pass$Education == "≥ College degree")
+
+# Anxiety
+models_educ_a <- function(data) {
+  model <- lm(`Generalized Anxiety Symptoms` ~ `Political Stress` + Age + Race + `Household Income` + `Marital Status`, data = data)
+  tidy(model, conf.int = TRUE) %>%
+    mutate(N = nobs(model)) %>%
+  filter(term == "`Political Stress`") 
+}
+model_results <- lapply(list(pass_educ_1, pass_educ_2), models_educ_a)
+models_educ_a <- do.call(rbind, model_results) %>% 
+  mutate("outcome" = "Generalized Anxiety Symptoms", group = c("< College Degree", "≥ College Degree")) %>%
+  dplyr::select(group, N, outcome, estimate, conf.low, conf.high)
+
+# Depression 
+models_educ_d <- function(data) {
+  model <- lm(`Depressive Symptoms` ~ `Political Stress` + Age + Race + `Household Income` + `Marital Status`, data = data)
+  tidy(model, conf.int = TRUE) %>%
+    mutate(N = nobs(model)) %>%
+  filter(term == "`Political Stress`") 
+}
+
+model_results <- lapply(list(pass_educ_1, pass_educ_2), models_educ_d)
+models_educ_d <- do.call(rbind, model_results) %>% 
+  mutate("outcome" = "Depressive Symptoms", group = c("< College Degree", "≥ College Degree")) %>%
+  dplyr::select(group, N, outcome, estimate, conf.low, conf.high)
+
+# Perceived Stress
+models_educ_pss <- function(data) {
+  model <- lm(`Perceived Stress` ~ `Political Stress` + Age + Race + `Household Income` + `Marital Status`, data = data)
+  tidy(model, conf.int = TRUE) %>%
+    mutate(N = nobs(model)) %>%
+  filter(term == "`Political Stress`") 
+}
+
+model_results <- lapply(list(pass_educ_1, pass_educ_2), models_educ_pss)
+models_educ_pss <- do.call(rbind, model_results) %>% 
+  mutate("outcome" = "Perceived Stress", group = c("< College Degree", "≥ College Degree")) %>%
+  dplyr::select(group, N, outcome, estimate, conf.low, conf.high)
+models_educ <- rbind(models_educ_a, models_educ_d, models_educ_pss)
+
+
+#### Race
+
+# Anxiety
+pass_race_white <- pass %>% filter(Race == "White")
+pass_race_nonwhite <- pass %>% filter(Race == "non-White")
+
+models_race_a <- function(data) {
+  model <- lm(`Generalized Anxiety Symptoms` ~ `Political Stress` + Age + Education + `Household Income` + `Marital Status`, data = data)
+  tidy(model, conf.int = TRUE) %>%
+  mutate(N = nobs(model)) %>%
+  filter(term == "`Political Stress`") 
+}
+
+model_results <- lapply(list(pass_race_white, pass_race_nonwhite), models_race_a)
+models_race_a <- do.call(rbind, model_results) %>% 
+  mutate("outcome" = "Generalized Anxiety Symptoms", group = c("White", "non-White"))%>%
+  dplyr::select(group, N, outcome, estimate, conf.low, conf.high)
+
+# Depression
+models_race_d <- function(data) {
+  model <- lm(`Depressive Symptoms` ~ `Political Stress` + Age + Education + `Household Income` + `Marital Status`, data = data)
+  tidy(model, conf.int = TRUE) %>%
+    mutate(N = nobs(model)) %>%
+  filter(term == "`Political Stress`") 
+}
+model_results <- lapply(list(pass_race_white, pass_race_nonwhite), models_race_d)
+models_race_d <- do.call(rbind, model_results) %>% 
+  mutate("outcome" = "Depressive Symptoms", group = c("White", "non-White")) %>%
+  dplyr::select(group, N, outcome, estimate, conf.low, conf.high)
+
+# Perceived Stress
+models_race_pss <- function(data) {
+  model <- lm(`Perceived Stress` ~ `Political Stress` + Age + `Household Income` + `Marital Status`, data = data)
+  tidy(model, conf.int = TRUE) %>%
+  mutate(N = nobs(model)) %>%
+  filter(term == "`Political Stress`") 
+}
+model_results <- lapply(list(pass_race_white, pass_race_nonwhite), models_race_pss)
+models_race_pss <- do.call(rbind, model_results) %>% 
+  mutate("outcome" = "Perceived Stress", group = c("White", "non-White")) %>%
+  dplyr::select(group, N, outcome, estimate, conf.low, conf.high)
+models_race <- rbind(models_race_a, models_race_d, models_race_pss)
+
+
+#### Abortion View
+
+# Anxiety 
+pass_abor_1 <- pass %>% filter(`Abortion View` == "Legal in most/all cases")
+pass_abor_2 <- pass %>% filter(`Abortion View` == "Illegal in most/all cases")
+
+model_results <- lapply(list(pass_abor_1, pass_abor_2), model_pol_a)
+models_abor_a <- do.call(rbind, model_results) %>% 
+  mutate("outcome" = "Generalized Anxiety Symptoms", group = c("Legal in most/all cases","Illegal in most/all cases")) %>%
+  dplyr::select(group,N, outcome, estimate, conf.low, conf.high)
+
+# Depression
+ model_results <- lapply(list(pass_abor_1, pass_abor_2), model_pol_d)
+ models_abor_d <- do.call(rbind, model_results) %>% 
+  mutate("outcome" = "Depressive Symptoms", group = c("Legal in most/all cases", "Illegal in most/all cases")) %>%
+  dplyr::select(group, N, outcome, estimate, conf.low, conf.high)
+
+
+# Perceived Stress
+ model_results <- lapply(list(pass_abor_1, pass_abor_2), model_pol_pss)
+ models_abor_pss <- do.call(rbind, model_results) %>% 
+  mutate("outcome" = "Perceived Stress", group = c("Legal in most/all cases", "Illegal in most/all cases")) %>%
+  dplyr::select(group, N, outcome, estimate, conf.low, conf.high)
+models_abor <- rbind(models_abor_a, models_abor_d, models_abor_pss)
+
+
+#### 2024 Election
+pass_24_1 <- pass %>% filter(`2024 Election as a Source of Stress` == "Not significant")
+pass_24_2 <- pass %>% filter(`2024 Election as a Source of Stress` == "Significant")
+
+# Anxiety
+model_results <- lapply(list(pass_24_1, pass_24_2), model_pol_a)
+models_election_a <- do.call(rbind, model_results) %>% 
+  mutate("outcome" = "Generalized Anxiety Symptoms", group = c("Not significant", "Significant")) %>%
+  dplyr::select(group, N, outcome, estimate, conf.low, conf.high)
+
+# Depression 
+model_results <- lapply(list(pass_24_1, pass_24_2), model_pol_d)
+models_election_d <- do.call(rbind, model_results) %>% 
+  mutate("outcome" = "Depressive Symptoms", group = c("Not significant", "Significant")) %>%
+  dplyr::select(group, N, outcome, estimate, conf.low, conf.high)
+models_election <- rbind(models_election_a, models_election_d)
+
+# Perceived Stress
+model_results <- lapply(list(pass_24_1, pass_24_2), model_pol_pss)
+models_election_pss <- do.call(rbind, model_results) %>% 
+  mutate("outcome" = "Perceived Stress", group = c("Not significant", "Significant")) %>%
+  dplyr::select(group, N, outcome, estimate, conf.low, conf.high)
+models_election <- rbind(models_election_a, models_election_d, models_election_pss)
+```
+
+
+Figure.
+
+```{r fig.width = 20, fig.height = 20, warning = FALSE,message = FALSE}
+##### All participants
+
+# Plot
+plot_dep_anx <- ggplot(model_all, aes(x = estimate, y = outcome)) +
+  geom_point(size = 0.5) +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high),
+                 size = 0.25,  linewidth = 0.5) +
+  geom_vline(xintercept = 0, color = "grey25", linetype = "dashed", alpha = 0.5) +  
+  xlab("Beta (95% Confidence Interval)") +
+  ylab("") +
+  scale_x_continuous(n.breaks=4) +
+ theme_classic(base_family = "Helvetica") +
+  theme(title = element_text(size = 20, color = "grey25"),
+        axis.title.x = element_text(size = 20, color = "grey25"),
+        axis.title.y = element_text(size = 20, color = "grey25"),
+        axis.text.x = element_text(size = 20, color = "grey25"),
+        axis.text.y = element_text(size = 20, color = "grey25"),
+        panel.grid = element_blank(),
+        legend.position = "none") 
+
+# Set theme for stratified plots
+theme_set(theme_classic(base_family = "Helvetica") +
+  theme(title = element_text(size = 20, color = "grey25"),
+        axis.title.x = element_text(size = 20, color = "grey25"),
+        axis.title.y = element_text(size = 20, color = "grey25"),
+        axis.text.x = element_text(size = 20, color = "grey25"),
+        axis.text.y = element_text(size = 20, color = "grey25"),
+        panel.grid = element_blank(),
+        legend.title = element_blank(),
+        legend.position = "bottom",
+        legend.text = element_text(size = 20, color = "grey25"))) 
+
+##### Stratified plots
+
+### Adjusted: Race
+
+# Define colors
+palette1 <- c("royalblue3", "springgreen4")
+
+plot_dep_anx_race <- ggplot(models_race, aes(x = estimate, y = outcome, color = group)) +
+  geom_point(size = 0.5, position = position_dodge(width = 0.25)) +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high),
+                  height = 0.25, size = 0.25,  linewidth = 0.5,
+                  position = position_dodge2(width = 0.25)) +
+  geom_vline(xintercept = 0, color = "black", linetype = "dashed", alpha = 0.5) +  
+  xlab("Beta (95% Confidence Interval)") +
+  ylab("") +
+  ggtitle("") +
+  scale_x_continuous(n.breaks=4) +
+  scale_color_manual(values = palette1) +
+  guides(color = guide_legend(override.aes = list(size = 0.5)))
+
+
+### Adjusted: Education
+
+plot_dep_anx_educ <- ggplot(models_educ, aes(x = estimate, y = outcome, color = group)) +
+  geom_point(size = 0.5, position = position_dodge(width = 0.25)) +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high),
+                  height = 0.25, size = 0.25, linewidth = 0.5,
+                  position = position_dodge2(width = 0.25)) +
+  geom_vline(xintercept = 0, color = "black", linetype = "dashed", alpha = 0.5) +  
+  xlab("Beta (95% Confidence Interval)") +
+  ylab("") +
+  ggtitle("") +
+  scale_x_continuous(n.breaks=4) +
+  scale_color_manual(values = palette1) +
+  guides(color = guide_legend(override.aes = list(size = 0.5)))
+
+  
+
+### Adjusted: Political orientation
+
+palette2 <- c("firebrick", "royalblue3", "springgreen4")
+
+plot_dep_anx_pol <- ggplot(models_pol, aes(x = estimate, y = outcome, color = group)) +
+  geom_point(size = 0.5, position = position_dodge(width = 0.25)) +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high),
+                  height = 0.25, size = 0.25, linewidth = 0.5,
+                  position = position_dodge2(width = 0.25)) +
+  geom_vline(xintercept = 0, color = "grey25", linetype = "dashed", alpha = 0.5) +  
+  xlab("Beta (95% Confidence Interval)") +
+  ylab("") +
+  ggtitle("") +
+  scale_x_continuous(n.breaks=4) +
+  scale_color_manual(values = palette2) +
+  guides(color = guide_legend(override.aes = list(size = 0.5)))
+
+
+
+### Adjusted: Abortion View
+
+ plot_dep_anx_abor <- ggplot(models_abor, aes(x = estimate, y = outcome, color = group)) +
+  geom_point(size = 0.5, position = position_dodge(width = 0.25)) +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high),
+                  height = 0.25, size = 0.25, linewidth = 0.5,
+                  position = position_dodge2(width = 0.25)) +
+  geom_vline(xintercept = 0, color = "grey25", linetype = "dashed", alpha = 0.5) +  
+  xlab("Beta (95% Confidence Interval)") +
+  ylab("") +
+  ggtitle("") +
+  scale_x_continuous(n.breaks=4) +
+  scale_color_manual(values = palette1) +
+  guides(color = guide_legend(override.aes = list(size = 0.5)))
+
+
+### Adjusted: 2024 Election as a source of stress
+plot_dep_anx_election <- ggplot(models_election, aes(x = estimate, y = outcome, color = group)) +
+  geom_point(size = 0.5, position = position_dodge(width = 0.25)) +
+  geom_pointrange(aes(xmin = conf.low, xmax = conf.high),
+                  height = 0.25, size = 0.25, linewidth = 0.5,
+                  position = position_dodge2(width = 0.25)) +
+  geom_vline(xintercept = 0, color = "grey25", linetype = "dashed", alpha = 0.5) +  
+  xlab("Beta (95% Confidence Interval)") +
+  ylab("") +
+  ggtitle("") +
+  scale_x_continuous(n.breaks=4) +
+  scale_color_manual(values = palette1, labels = c("Not Significant", "Significant")) +
+   guides(color = guide_legend(override.aes = list(size = 0.5)))
+
+
+fig_1 <- plot_grid(plot_dep_anx + theme(plot.margin = margin(t = 1, b = 1.5, l = 1, r = 1, unit = "cm")), plot_dep_anx_race, plot_dep_anx_educ, plot_dep_anx_election, plot_dep_anx_pol, plot_dep_anx_abor,
+                   labels = c("A", "B", "C", "D", "E", "F"),
+                   nrow = 3,
+                   align = "v")
+
+fig_1
+```
+
+### *Figure 2*
+Simple slopes reflecting the effect of political stress on depressive symptoms and perceived stress with modification by political orientation, education, race, abortion view, and 2024 election, in the Policies and Social Stress (PASS) Study
+
+Interaction.
+```{r warning = FALSE, message=FALSE}
+###### P-interaction
+
+### General Anxiety 
+
+# Race
+# Run interaction model
+p_race_anx <- lm(`Generalized Anxiety Symptoms` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Political Stress`*Race, data = pass)
+# Pull estimate, CI
+p_race_anx_p <- tidy(p_race_anx, conf.int = TRUE) %>%
+  filter(term %in% c("`Political Stress`","RaceWhite", "`Political Stress`:RaceWhite")) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)  %>%
+  mutate(outcome = "Generalized Anxiety Symptoms", term = recode(term, "`Political Stress`" = "Political Stress (race)","RaceWhite" = "White",  "`Political Stress`:RaceWhite" ="Political Stress*White"))
+
+# Education
+p_educ_anx <- lm(`Generalized Anxiety Symptoms` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Political Stress`*Education, data = pass)
+p_educ_anx_p <- tidy(p_educ_anx,  conf.int = TRUE) %>%
+  filter(term %in% c("`Political Stress`","Education≥ College degree", "`Political Stress`:Education≥ College degree")) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)  %>%
+  mutate(outcome = "Generalized Anxiety Symptoms", term = recode(term, "`Political Stress`" = "Political Stress (education)", "Education≥ College degree" = "≥ College degree", "`Political Stress`:Education≥ College degree" = "Political Stress*≥ College degree"))
+
+# 2024 Election 
+p_24_anx <- lm(`Generalized Anxiety Symptoms` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Political Stress`*`2024 Election as a Source of Stress`, data = pass)
+p_24_anx_p <- tidy(p_24_anx,  conf.int = TRUE) %>%
+filter(term %in% c("`Political Stress`","`2024 Election as a Source of Stress`Significant", "`Political Stress`:`2024 Election as a Source of Stress`Significant")) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)  %>%
+  mutate(outcome = "Generalized Anxiety Symptoms", term = recode(term, "`Political Stress`" = "Political Stress (2024)", "`2024 Election as a Source of Stress`Significant" = "Significant", "`Political Stress`:`2024 Election as a Source of Stress`Significant" = "Political Stress*Significant"))
+
+# Political Orientation
+p_pol_anx <- lm(`Generalized Anxiety Symptoms` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Political Stress`*`Political Orientation`, data = pass)
+p_pol_anx_p <- tidy(p_pol_anx, conf.int = TRUE) %>%
+  filter(term %in% c("`Political Stress`", "`Political Orientation`Moderate","`Political Orientation`Conservative", "`Political Stress`:`Political Orientation`Moderate", "`Political Stress`:`Political Orientation`Conservative")) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)  %>%
+  mutate(outcome = "Generalized Anxiety Symptoms", term = recode(term, "`Political Stress`" = "Political Stress (pol)", "`Political Orientation`Moderate" = "Moderate", "`Political Orientation`Conservative" = "Conservative", "`Political Stress`:`Political Orientation`Moderate" = "Political Stress*Moderate", "`Political Stress`:`Political Orientation`Conservative" = "Political Stress*Conservative"))
+
+# Abortion
+p_abor_anx <- lm(`Generalized Anxiety Symptoms` ~ `Political Stress` + Age + Race + Education +`Household Income` + `Political Stress`*`Abortion View`, data = pass)
+p_abor_anx_p <- tidy(p_abor_anx,  conf.int = TRUE) %>%
+  filter(term %in% c("`Political Stress`", "`Abortion View`Illegal in most/all cases", "`Political Stress`:`Abortion View`Illegal in most/all cases")) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)  %>%
+  mutate(outcome = "Generalized Anxiety Symptoms", term = recode(term, "`Political Stress`" = "Political Stress (abor)", "`Abortion View`Illegal in most/all cases" = "Illegal in most/all cases", "`Political Stress`:`Abortion View`Illegal in most/all cases" = "Political Stress*Illegal in most/all cases"))
+
+
+#### Depression
+
+# Race
+p_race_dep <- lm(`Depressive Symptoms` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Political Stress`*Race, data = pass)
+p_race_dep_p <- tidy(p_race_dep,  conf.int = TRUE) %>%
+  filter(term %in% c("`Political Stress`","RaceWhite", "`Political Stress`:RaceWhite")) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)  %>%
+  mutate(outcome = "Depressive Symptoms", term = recode(term, "`Political Stress`" = "Political Stress (race)","RaceWhite" = "White",  "`Political Stress`:RaceWhite" ="Political Stress*White"))
+
+
+# Education
+p_educ_dep <- lm(`Depressive Symptoms` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Political Stress`*Education, data = pass)
+p_educ_dep_p <- tidy(p_educ_dep,  conf.int = TRUE) %>%
+  filter(term %in% c("`Political Stress`","Education≥ College degree", "`Political Stress`:Education≥ College degree")) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)  %>%
+  mutate(outcome = "Depressive Symptoms", term = recode(term, "`Political Stress`" = "Political Stress (education)", "Education≥ College degree" = "≥ College degree", "`Political Stress`:Education≥ College degree" = "Political Stress*≥ College degree"))
+
+# 2024 Election 
+p_24_dep <- lm(`Depressive Symptoms`  ~ `Political Stress` + Age + Race + Education +`Household Income` + `Political Stress`*`2024 Election as a Source of Stress`, data = pass)
+p_24_dep_p <- tidy(p_24_dep,  conf.int = TRUE) %>%
+filter(term %in% c("`Political Stress`","`2024 Election as a Source of Stress`Significant", "`Political Stress`:`2024 Election as a Source of Stress`Significant")) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)  %>%
+  mutate(outcome = "Depressive Symptoms", term = recode(term, "`Political Stress`" = "Political Stress (2024)", "`2024 Election as a Source of Stress`Significant" = "Significant", "`Political Stress`:`2024 Election as a Source of Stress`Significant" = "Political Stress*Significant"))
+
+# Political Orientation
+p_pol_dep <- lm(`Depressive Symptoms` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Political Stress`*`Political Orientation`, data = pass)
+p_pol_dep_p <- tidy(p_pol_dep,  conf.int = TRUE) %>%
+  filter(term %in% c("`Political Stress`", "`Political Orientation`Moderate","`Political Orientation`Conservative", "`Political Stress`:`Political Orientation`Moderate", "`Political Stress`:`Political Orientation`Conservative")) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)  %>%
+  mutate(outcome = "Depressive Symptoms", term = recode(term, "`Political Stress`" = "Political Stress (pol)", "`Political Orientation`Moderate" = "Moderate", "`Political Orientation`Conservative" = "Conservative", "`Political Stress`:`Political Orientation`Moderate" = "Political Stress*Moderate", "`Political Stress`:`Political Orientation`Conservative" = "Political Stress*Conservative"))
+
+# Abortion
+p_abor_dep <- lm(`Depressive Symptoms`  ~ `Political Stress` + Age + Race + Education +`Household Income` + `Political Stress`*`Abortion View`, data = pass)
+p_abor_dep_p <- tidy(p_abor_dep,  conf.int = TRUE) %>%
+  filter(term %in% c("`Political Stress`", "`Abortion View`Illegal in most/all cases", "`Political Stress`:`Abortion View`Illegal in most/all cases")) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)  %>%
+  mutate(outcome = "Depressive Symptoms", term = recode(term, "`Political Stress`" = "Political Stress (abor)", "`Abortion View`Illegal in most/all cases" = "Illegal in most/all cases", "`Political Stress`:`Abortion View`Illegal in most/all cases" = "Political Stress*Illegal in most/all cases"))
+
+
+#### Perceived Stress
+
+# Race
+p_race_per <- lm(`Perceived Stress` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Political Stress`*Race, data = pass)
+p_race_per_p <- tidy(p_race_per,  conf.int = TRUE) %>%
+  filter(term %in% c("`Political Stress`","RaceWhite", "`Political Stress`:RaceWhite")) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)  %>%
+  mutate(outcome = "Perceived Stress", term = recode(term, "`Political Stress`" = "Political Stress (race)","RaceWhite" = "White",  "`Political Stress`:RaceWhite" ="Political Stress*White"))
+
+
+# Education
+p_educ_per <- lm(`Perceived Stress` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Political Stress`*Education, data = pass)
+p_educ_per_p <- tidy(p_educ_per,  conf.int = TRUE) %>%
+  filter(term %in% c("`Political Stress`","Education≥ College degree", "`Political Stress`:Education≥ College degree")) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)  %>%
+  mutate(outcome = "Perceived Stress", term = recode(term, "`Political Stress`" = "Political Stress (education)", "Education≥ College degree" = "≥ College degree", "`Political Stress`:Education≥ College degree" = "Political Stress*≥ College degree"))
+
+# 2024 Election 
+p_24_per <- lm(`Perceived Stress` ~ `Political Stress` + Age + Race + Education +`Household Income` + `Political Stress`*`2024 Election as a Source of Stress`, data = pass)
+p_24_per_p <- tidy(p_24_per,  conf.int = TRUE) %>%
+filter(term %in% c("`Political Stress`","`2024 Election as a Source of Stress`Significant", "`Political Stress`:`2024 Election as a Source of Stress`Significant")) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)  %>%
+  mutate(outcome = "Perceived Stress", term = recode(term, "`Political Stress`" = "Political Stress (2024)", "`2024 Election as a Source of Stress`Significant" = "Significant", "`Political Stress`:`2024 Election as a Source of Stress`Significant" = "Political Stress*Significant"))
+
+# Political Orientation
+p_pol_per <- lm(`Perceived Stress` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Political Stress`*`Political Orientation`, data = pass)
+p_pol_per_p <- tidy(p_pol_per,  conf.int = TRUE) %>%
+  filter(term %in% c("`Political Stress`", "`Political Orientation`Moderate","`Political Orientation`Conservative", "`Political Stress`:`Political Orientation`Moderate", "`Political Stress`:`Political Orientation`Conservative")) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)  %>%
+  mutate(outcome = "Perceived Stress", term = recode(term, "`Political Stress`" = "Political Stress (pol)", "`Political Orientation`Moderate" = "Moderate", "`Political Orientation`Conservative" = "Conservative", "`Political Stress`:`Political Orientation`Moderate" = "Political Stress*Moderate", "`Political Stress`:`Political Orientation`Conservative" = "Political Stress*Conservative"))
+
+# Abortion View
+p_abor_per <- lm(`Perceived Stress` ~ `Political Stress` + Age + Race + Education +`Household Income` + `Political Stress`*`Abortion View`, data = pass)
+p_abor_per_p <- tidy(p_abor_per,  conf.int = TRUE) %>%
+  filter(term %in% c("`Political Stress`", "`Abortion View`Illegal in most/all cases", "`Political Stress`:`Abortion View`Illegal in most/all cases")) %>%
+  dplyr::select(term, estimate, conf.low, conf.high, p.value)  %>%
+  mutate(outcome = "Perceived Stress", term = recode(term, "`Political Stress`" = "Political Stress (abor)", "`Abortion View`Illegal in most/all cases" = "Illegal in most/all cases", "`Political Stress`:`Abortion View`Illegal in most/all cases" = "Political Stress*Illegal in most/all cases"))
+
+
+```
+
+Figure. 
+
+
+```{r fig.width = 20, fig.height = 20}
+####### Interaction Plots 
+
+
+int_dep_pol <- interact_plot(p_pol_dep, pred = `Political Stress`, modx = `Political Orientation`, x.label = "Political Stress", y.label = "Depressive Symptoms", colors = c("royalblue3", "springgreen4", "firebrick")) +
+  theme_classic() +
+  labs(title = "Political Orientation") +
+  guides(color = guide_legend(override.aes = list(size = 0.5))) +
+  theme(text = element_text(size = 20, color = "grey25", family = "Helvetica"), legend.position = "right", legend.text = element_text(size = 20), legend.title = element_blank(), plot.title = element_text(hjust = 0.5, face = "bold"), panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+int_per_pol <- interact_plot(p_pol_per, pred = `Political Stress`, modx = `Political Orientation`, x.label = "Political Stress", y.label = "Perceived Stress", colors = c("royalblue3", "springgreen4", "firebrick")) +
+  theme_classic() +
+  labs(title = "") +
+  guides(color = guide_legend(override.aes = list(size = 0.5))) +
+  theme(text = element_text(size = 20, color = "grey25", family = "Helvetica"), legend.position = "right", legend.text = element_text(size = 20), legend.title = element_blank(), panel.grid.minor = element_blank(), panel.grid.major = element_blank())
+
+int_per_abor <- interact_plot(p_abor_per, pred = `Political Stress`, modx = `Abortion View`, x.label = "Political Stress", y.label = "Perceived Stress", colors = c("royalblue3", "springgreen4", "firebrick")) +
+  theme_classic() +
+  labs(title = "Abortion View") +
+  guides(color = guide_legend(override.aes = list(size = 0.5))) +
+  theme(text = element_text(size = 20, color = "grey25", family = "Helvetica"), legend.position = "right",legend.text = element_text(size = 20), legend.title = element_blank(), plot.title = element_text(hjust = 0.5, face = "bold"), panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+int_per_24 <- interact_plot(p_24_per, pred = `Political Stress`, modx = `2024 Election as a Source of Stress`, x.label = "Political Stress", y.label = "Perceived Stress", colors = c("royalblue3", "springgreen4", "firebrick")) +
+  theme_classic() +
+  labs(title = "") +
+  guides(color = guide_legend(override.aes = list(size = 0.5))) +
+  theme(text = element_text(size = 20, color = "grey25", family = "Helvetica"), legend.position = "right", legend.text = element_text(size = 20), legend.title = element_blank(), plot.title = element_text(hjust = 0.5, face = "bold"), panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+int_dep_24 <- interact_plot(p_24_dep, pred = `Political Stress`, modx = `2024 Election as a Source of Stress`, x.label = "Political Stress", y.label = "Depressive Symptoms", colors = c("royalblue3", "springgreen4", "firebrick")) +
+  theme_classic() +
+  labs(title = "2024 Election") +
+  guides(color = guide_legend(override.aes = list(size = 0.5))) +
+  theme(text = element_text(size = 20, color = "grey25", family = "Helvetica"), legend.position = "right", legend.title = element_blank(), legend.text = element_text(size = 20), plot.title = element_text(hjust = 0.5, face = "bold"), panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+
+
+# Plot 
+
+fig_2 <- plot_grid(
+  int_dep_pol, int_dep_24,
+  int_per_pol, int_per_24,
+  int_per_abor,
+  ncol = 2, nrow = 4, align = "v")
+
+fig_2
+```
+
+## **Supplemental: Tables and Figures**
+
+### *Table S1*
+Associations between political stress and generalized anxiety symptoms, depressive symptoms, and perceived stress, estimated using adjusted linear regression models in the Policies and Social Stress (PASS) Study (N=123)
+
+```{r, warning=FALSE, message=FALSE}
+# Format table
+table_s1 <- model_all %>% 
+  mutate_if(is.numeric, round, digits = 2) %>%
+  mutate(`Beta (CI)` = paste0(estimate, " (", conf.low, ", ", conf.high, ")"))  %>%
+  dplyr::select(outcome, N, `Beta (CI)`) %>%
+  pivot_wider(names_from = outcome, values_from = c(N,`Beta (CI)`),  names_glue = "{outcome}_{.value}") %>%
+  dplyr::select(`Generalized Anxiety Symptoms_N`, `Generalized Anxiety Symptoms_Beta (CI)`, `Depressive Symptoms_N`, `Depressive Symptoms_Beta (CI)`, `Perceived Stress_N`,`Perceived Stress_Beta (CI)`) %>%
+  regulartable() %>% 
+  separate_header() %>%
+align(align = "center", part = "all") %>%
+theme_vanilla() %>%
+  autofit() %>%
+  set_caption("Table S1: Associations between political stress and generalized anxiety, depression, and perceived stress, estimated using adjusted linear regression models, Beta (95% CI)")
+
+table_s1
+
+```
+
+### *Table S2* {.tabset}
+Associations between political stress and generalized anxiety symptoms, depressive symptoms, and perceived stress stratified by political orientation, race, education, abortion view, and perceptions of the 2024 election as a source of stress, estimated using adjusted linear regression models
+
+#### Regression
+```{r}
+# Bind model results together
+table_s21 <- rbind(models_pol, models_race, models_educ, models_abor, models_election)  
+
+# Format table
+table_s21 <- table_s21 %>%
+  mutate_if(is.numeric, round, digits = 2) %>%
+  mutate(`Beta (CI)` = paste0(estimate, " (", conf.low, ", ", conf.high, ")"))  %>%
+  rename("Group" = group) %>%
+  dplyr::select(Group, N, outcome, `Beta (CI)`) %>%
+  pivot_wider(names_from = outcome, values_from = c(N,`Beta (CI)`),  names_glue = "{outcome}_{.value}") %>%
+  mutate(,"Demographic" = c("Political Orientation", "", "", "Race", "", "Education", "", "Abortion View", "",  "Election", "")) %>%
+  dplyr::select(Demographic, Group,`Generalized Anxiety Symptoms_N`, `Generalized Anxiety Symptoms_Beta (CI)`, `Depressive Symptoms_N`, `Depressive Symptoms_Beta (CI)`, `Perceived Stress_N`,`Perceived Stress_Beta (CI)`) %>%
+  regulartable() %>% 
+  separate_header() %>%
+  align(align = "center", part = "all") %>%
+  theme_vanilla() %>%
+  autofit() %>%
+  set_caption(caption = "Table S2: Associations between political stress and generalized anxiety, depression, and perceived stress across sociodemographics, estimated using adjusted linear regression models, Beta (95% CI)")
+
+table_s21
+```
+
+#### p-interaction
+```{r}
+# Bind outcomes together
+p_interaction <- rbind(p_pol_anx_p, p_pol_dep_p, p_pol_per_p, p_educ_anx_p, p_educ_dep_p, p_educ_per_p, p_race_anx_p, p_race_dep_p, p_race_per_p, p_abor_anx_p, p_abor_dep_p, p_abor_per_p, p_24_anx_p, p_24_dep_p, p_24_per_p)
+
+# Format 
+table_S22 <- p_interaction %>%
+   mutate_if(is.numeric, round, digits = 2) %>%
+   mutate(Beta_CI = paste0(estimate, " (", conf.low, ", ", conf.high, ")"))  %>%
+   dplyr::select(term, outcome, Beta_CI) %>%
+   pivot_wider(names_from = outcome, values_from = c(Beta_CI)) %>%
+   mutate("Demographic" = c("Political Orientation", "","", "", "", "Education", "", "", "Race", "", "", "Abortion View", "", "", "Election", "", "")) %>%
+  rename(Group = term) %>%
+  dplyr::select(Demographic, Group, `Generalized Anxiety Symptoms`, `Depressive Symptoms`, `Perceived Stress`) %>%
+  regulartable() %>%
+  autofit() %>%
+  theme_vanilla() %>%
+  set_caption(caption = "Table S2: The effect of political stress on depressive symptoms and perceived stress with modification by political orientation, education, race, abortion view, and 2024 election, in the Policies and Social Stress (PASS) Study")
+
+table_S22 
+
+```
+
+### *Table S3*
+Sensitivity analysis assessing the relationship between political stress and generalized anxiety symptoms, depressive symptoms, and perceived stress removing those with levels of depression and anxiety above the clinical cutpoint, and restricted to those who were liberal white, and had at least a college degree
+
+```{r}
+# Subset
+pass_restric <- pass %>% filter(`Generalized Anxiety Symptoms` < 10, `Depressive Symptoms` < 16)
+# Run regression
+model_anx_a <- lm(`Generalized Anxiety Symptoms` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Marital Status`, data = pass_restric)
+
+# Anxiety
+model_anx_a <- tidy(model_anx_a, conf.int = TRUE) %>%
+  filter(term == "`Political Stress`") %>%
+  mutate("outcome" = "Generalized Anxiety Symptoms", "N" = nobs(model_anx_a)) %>%
+  dplyr::select(outcome, N, estimate, conf.low, conf.high)
+
+# Depression
+model_dep_a <- lm(`Depressive Symptoms` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Marital Status`, data = pass_restric)
+model_dep_a <- tidy(model_dep_a, conf.int = TRUE) %>%
+  filter(term == "`Political Stress`") %>%
+  mutate("outcome" = "Depressive Symptoms", "N" = nobs(model_dep_a)) %>%
+  dplyr::select(outcome, N, estimate, conf.low, conf.high)
+
+# Perceived Stress
+model_pss_a <- lm(`Perceived Stress` ~ `Political Stress` + Age + Race + Education + `Household Income` + `Marital Status`, data = pass_restric)
+model_pss_a <- tidy(model_pss_a, conf.int = TRUE) %>%
+  filter(term == "`Political Stress`") %>%
+  mutate("outcome" = "Perceived Stress", "N" = nobs(model_pss_a)) %>%
+  dplyr::select(outcome, N, estimate, conf.low, conf.high)
+
+
+model_all <- rbind(model_anx_a, model_dep_a, model_pss_a)
+
+#### Liberal, college or graduate degree, election is a source of stress
+pass_strat <- pass %>% filter(`Political Orientation` == "Liberal", Education == "≥ College degree", `2024 Election as a Source of Stress` == "Significant")
+
+# Anxiety
+model_anx_a <- lm(`Generalized Anxiety Symptoms` ~ `Political Stress` + Age + Race + `Household Income` + `Marital Status`, data = pass_strat)
+model_anx_a <- tidy(model_anx_a, conf.int = TRUE) %>%
+  filter(term == "`Political Stress`") %>%
+  mutate("outcome" = "Generalized Anxiety Symptoms", "N" = nobs(model_anx_a)) %>%
+  dplyr::select(outcome, N, estimate, conf.low, conf.high)
+
+# Depression
+model_dep_a <- lm(`Depressive Symptoms` ~ `Political Stress` + Age + Race + `Household Income` + `Marital Status`, data = pass_strat)
+model_dep_a <- tidy(model_dep_a, conf.int = TRUE) %>%
+  filter(term == "`Political Stress`") %>%
+  mutate("outcome" = "Depressive Symptoms", "N" = nobs(model_dep_a)) %>%
+  dplyr::select(outcome, N, estimate, conf.low, conf.high)
+
+# Perceived Stress
+model_pss_a <- lm(`Perceived Stress` ~ `Political Stress` + Age + Race + `Household Income` + `Marital Status`, data = pass_strat)
+model_pss_a <- tidy(model_pss_a, conf.int = TRUE) %>%
+  filter(term == "`Political Stress`") %>%
+  mutate("outcome" = "Perceived Stress", "N" = nobs(model_pss_a)) %>%
+  dplyr::select(outcome, N, estimate, conf.low, conf.high)
+
+
+model_strat <- rbind(model_anx_a, model_dep_a, model_pss_a)
+
+
+pass_strat <- pass %>% filter(`Political Orientation` == "Liberal", Education == "≥ College degree", `2024 Election as a Source of Stress` == "Significant")
+
+##### Additionally adjusting for stressful life events
+# Anxiety
+model_anx_a <- lm(`Generalized Anxiety Symptoms` ~ `Political Stress` + Age + Race + `Household Income` + `Marital Status` + sle_total, data = pass)
+model_anx_a <- tidy(model_anx_a, conf.int = TRUE) %>%
+  filter(term == "`Political Stress`") %>%
+  mutate("outcome" = "Generalized Anxiety Symptoms", "N" = nobs(model_anx_a)) %>%
+  dplyr::select(outcome, N, estimate, conf.low, conf.high)
+
+# Depression
+model_dep_a <- lm(`Depressive Symptoms` ~ `Political Stress` + Age + Race + `Household Income` + `Marital Status` + sle_total, data = pass)
+model_dep_a <- tidy(model_dep_a, conf.int = TRUE) %>%
+  filter(term == "`Political Stress`") %>%
+  mutate("outcome" = "Depressive Symptoms", "N" = nobs(model_dep_a)) %>%
+  dplyr::select(outcome, N, estimate, conf.low, conf.high)
+
+# Perceived Stress
+model_pss_a <- lm(`Perceived Stress` ~ `Political Stress` + Age + Race + `Household Income` + `Marital Status` + sle_total, data = pass)
+model_pss_a <- tidy(model_pss_a, conf.int = TRUE) %>%
+  filter(term == "`Political Stress`") %>%
+  mutate("outcome" = "Perceived Stress", "N" = nobs(model_pss_a)) %>%
+  dplyr::select(outcome, N, estimate, conf.low, conf.high)
+
+
+model_sle <- rbind(model_anx_a, model_dep_a, model_pss_a)
+
+# Format table
+ 
+table_s3 <- rbind(model_all, model_strat, model_sle)
+table_s3 <- table_s3 %>% 
+        mutate_if(is.numeric, round, digits = 2) %>%
+        mutate(`Beta (CI)` = paste0(estimate, " (", conf.low, ", ", conf.high, ")"), predictor = rep(c("Not clinically depressed/anxious", "Liberal, Educated, 2024 Election Stress Significant", "Adjusting for stressful life events"), each = 3)) %>%
+        dplyr::select(predictor, outcome, N, `Beta (CI)`) %>% 
+        group_by(predictor) %>% 
+        rename(Group = predictor) %>%
+  pivot_wider(names_from = outcome, values_from = c(N,`Beta (CI)`),  names_glue = "{outcome}_{.value}") %>%
+  dplyr::select(Group,`Generalized Anxiety Symptoms_N`, `Generalized Anxiety Symptoms_Beta (CI)`, `Depressive Symptoms_N`, `Depressive Symptoms_Beta (CI)`, `Perceived Stress_N`,`Perceived Stress_Beta (CI)`) %>%
+        regulartable() %>%
+        separate_header() %>%
+        align(align = "center", part = "all") %>%
+        theme_vanilla() %>%
+        autofit() %>%
+        set_caption(caption = "Table S3: Sensitivity analysis. Associations between political stress and generalized anxiety, depression, and perceived stress, estimated using adjusted linear regression models, Beta (95% CI)", align_with_table = FALSE)
+
+
+table_s3
+
+
+
+```
+
+
+### *Figure S1*
+Pearson correlation showing correlations between exposures and outcomes in the Policies and Social Stress (PASS) Study
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+# Select variables
+pass_cor <- pass %>% dplyr::select(`Political Stress`, `Generalized Anxiety Symptoms`, `Depressive Symptoms`, `Perceived Stress`) %>% drop_na(`Political Stress`, `Depressive Symptoms`, `Generalized Anxiety Symptoms`, `Perceived Stress`)
+
+# Correlation matrix
+c <- cor(pass_cor)
+
+# Plot
+corrplot(c, method = "shade", cl.cex = 1, tl.col = "black") %>%
+corrRect(c(1, 2, 4))
+```
